@@ -1,0 +1,10 @@
+datasets
+transformers
+deepspeed
+evaluate
+accelerate
+scikit-learn
+bitsandbytes
+wheel
+packaging
+flash_attn
