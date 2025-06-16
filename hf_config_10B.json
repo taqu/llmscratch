@@ -3,9 +3,10 @@
   "model_type": "mistral",
   "model_name_or_path": "./mistral-338m/",
   "tokenizer_name": "./mistral-338m/",
-  "dataset_name": "bigcode/the-stack-v2-dedup",
-  "dataset_config_name": "C++",
+  "dataset_name": "HuggingFaceFW/fineweb",
+  "dataset_config_name": "sample-10BT",
   "output_dir": "checkpoints-mistral-338m",
+  "overwrite_output_dir": true,
   "do_train": true,
   "do_eval": true,
   "prediction_loss_only": true,
@@ -35,6 +36,5 @@
   "push_to_hub": false,
   "dataloader_num_workers": 7,
   "torch_compile": true,
-  "fim_rate": 0.5,
-  "fim_spm_rate": 0.5
+  "max_train_samples": 10000
 }

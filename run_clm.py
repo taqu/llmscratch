@@ -40,8 +40,6 @@ from transformers import (
     MODEL_FOR_CAUSAL_LM_MAPPING,
     AutoConfig,
     AutoModelForCausalLM,
-    RwkvForCausalLM,
-    RwkvConfig,
     MistralForCausalLM,
     MistralConfig,
     AutoTokenizer,
@@ -423,13 +421,13 @@ def main():
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
-    if model_args.model_name_or_path:
+    if model_args.model_name_or_path and bool(".ckpt" in model_args.model_name_or_path):
         torch_dtype = (
             model_args.torch_dtype
             if model_args.torch_dtype in ["auto", None]
             else getattr(torch, model_args.torch_dtype)
         )
-        model = MistralForCausalLM.from_pretrained(
+        model = AutoModelForCausalLM.from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
@@ -439,7 +437,7 @@ def main():
             trust_remote_code=model_args.trust_remote_code,
             torch_dtype=torch_dtype,
             low_cpu_mem_usage=model_args.low_cpu_mem_usage,
-            #attn_implementation="flash_attention_2",
+            attn_implementation="flash_attention_2",
         )
     else:
         import json
@@ -450,10 +448,10 @@ def main():
             return config
         config = load_config_from_json(config_file = os.path.join(os.path.dirname(__file__),"mistral-338m","config.json"))
         from collections import OrderedDict
-        model = MistralForCausalLM.from_pretrained(pretrained_model_name_or_path=None,
+        model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=None,
             config=config,
             state_dict=OrderedDict(),
-            #attn_implementation="flash_attention_2",
+            attn_implementation="flash_attention_2",
         )
         print("Mistral config:",config)
         print("Mistral model architecture:",model)

@@ -19,7 +19,7 @@
     "sliding_window": 1024,
     "tie_word_embeddings": false,
     "torch_dtype": "float16",
-    "transformers_version": "4.35.2",
+    "transformers_version": "4.52.4",
     "use_cache": true,
     "vocab_size": 50000
 }

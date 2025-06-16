@@ -4,7 +4,6 @@ deepspeed
 evaluate
 accelerate
 scikit-learn
-bitsandbytes
 wheel
-packaging
+bitsandbytes
 flash_attn

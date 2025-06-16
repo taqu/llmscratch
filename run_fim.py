@@ -494,7 +494,7 @@ def main():
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
-    if model_args.model_name_or_path:
+    if model_args.model_name_or_path and bool(".ckpt" in model_args.model_name_or_path):
         torch_dtype = (
             model_args.torch_dtype
             if model_args.torch_dtype in ["auto", None]
@@ -514,11 +514,21 @@ def main():
         )
 
     else:
-        model = AutoModelForCausalLM.from_config(
-            config,
-            trust_remote_code=model_args.trust_remote_code,
-            attn_implementation=model_args.attn_implementation,
+        import json
+        def load_config_from_json(config_file):
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+                config = MistralConfig.from_dict(config)
+            return config
+        config = load_config_from_json(config_file = os.path.join(os.path.dirname(__file__),"mistral-338m","config.json"))
+        from collections import OrderedDict
+        model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=None,
+            config=config,
+            state_dict=OrderedDict(),
+            attn_implementation="flash_attention_2",
         )
+        print("Mistral config:",config)
+        print("Mistral model architecture:",model)
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
         logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
 
