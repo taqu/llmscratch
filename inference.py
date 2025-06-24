@@ -1,9 +1,8 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 import torch
 # from transformers import PreTrainedTokenizerFast
-import sentencepiece as spm
 
-MODEL_NAME = "./checkpoints-mistral-350m"
+MODEL_NAME = "./checkpoints-mistral-338m"
 torch.set_float32_matmul_precision('high')
 
 DEVICE = "cuda"
@@ -14,7 +13,7 @@ else:
     print("cpu")
     DEVICE = "cpu"
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME,use_fast=False)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME,use_fast=True)
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
     trust_remote_code=True,
@@ -38,7 +37,6 @@ with torch.no_grad():
         num_beams=3
     )
 
-print(outputs.tolist()[0])
 outputs_txt = tokenizer.decode(outputs[0])
 print(outputs_txt)
 
