@@ -2,7 +2,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 import torch
 # from transformers import PreTrainedTokenizerFast
 
-MODEL_NAME = "./checkpoints-mistral-338m"
+MODEL_NAME = "./checkpoints-mistral-338m/checkpoint-5000"
 torch.set_float32_matmul_precision('high')
 
 DEVICE = "cuda"

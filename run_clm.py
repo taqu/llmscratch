@@ -40,8 +40,6 @@ from transformers import (
     MODEL_FOR_CAUSAL_LM_MAPPING,
     AutoConfig,
     AutoModelForCausalLM,
-    MistralForCausalLM,
-    MistralConfig,
     AutoTokenizer,
     HfArgumentParser,
     Trainer,
@@ -444,7 +442,7 @@ def main():
         def load_config_from_json(config_file):
             with open(config_file, 'r') as f:
                 config = json.load(f)
-                config = MistralConfig.from_dict(config)
+                config = AutoConfig.from_dict(config)
             return config
         config = load_config_from_json(config_file = os.path.join(os.path.dirname(__file__),"mistral-338m","config.json"))
         from collections import OrderedDict
@@ -453,8 +451,8 @@ def main():
             state_dict=OrderedDict(),
             attn_implementation="flash_attention_2",
         )
-        print("Mistral config:",config)
-        print("Mistral model architecture:",model)
+        print("Model config:",config)
+        print("Model architecture:",model)
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
         logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
 
