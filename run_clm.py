@@ -440,15 +440,23 @@ def main():
     else:
         import json
         def load_config_from_json(config_file):
+            print(config_file)
             with open(config_file, 'r') as f:
                 config = json.load(f)
+                print(config)
                 config = AutoConfig.from_dict(config)
             return config
-        config = load_config_from_json(config_file = os.path.join(os.path.dirname(__file__),"mistral-338m","config.json"))
-        from collections import OrderedDict
-        model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=None,
+        #config = load_config_from_json(config_file = os.path.join(os.path.dirname(__file__),model_args.model_name_or_path,"config.json"))
+        config = AutoConfig.from_pretrained(model_args.model_name_or_path)
+        #from collections import OrderedDict
+        #model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=None,
+        #    config=config,
+        #    state_dict=OrderedDict(),
+        #    attn_implementation="flash_attention_2",
+        #)
+        model = AutoModelForCausalLM.from_config(
             config=config,
-            state_dict=OrderedDict(),
+        #    state_dict=OrderedDict(),
             attn_implementation="flash_attention_2",
         )
         print("Model config:",config)
