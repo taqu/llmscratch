@@ -25,6 +25,7 @@ import logging
 import math
 import os
 import sys
+import gc
 from dataclasses import dataclass, field
 from itertools import chain
 from typing import Optional
@@ -147,6 +148,16 @@ class ModelArguments:
                 "It is an option to create the model as an empty shell, then only materialize its parameters when the pretrained weights are loaded. "
                 "set True will benefit LLM loading time and RAM consumption."
             )
+        },
+    )
+    attn_implementation: Optional[str] = field(
+        default="flash_attention_2",
+        metadata={
+            "help": (
+                "Override the default `torch.dtype` and load the model under this dtype. If `auto` is passed, the "
+                "dtype will be automatically derived from the model's weights."
+            ),
+            "choices": ["flash_attention_2", "eager"],
         },
     )
 
@@ -435,7 +446,7 @@ def main():
             trust_remote_code=model_args.trust_remote_code,
             torch_dtype=torch_dtype,
             low_cpu_mem_usage=model_args.low_cpu_mem_usage,
-            attn_implementation="flash_attention_2",
+            attn_implementation=model_args.attn_implementation,
         )
     else:
         import json
@@ -456,8 +467,8 @@ def main():
         #)
         model = AutoModelForCausalLM.from_config(
             config=config,
-        #    state_dict=OrderedDict(),
-            attn_implementation="flash_attention_2",
+            #state_dict=OrderedDict(),
+            attn_implementation=model_args.attn_implementation,
         )
         print("Model config:",config)
         print("Model architecture:",model)
@@ -627,6 +638,8 @@ def main():
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
+        gc.collect()
+        torch.cuda.empty_cache()
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
         metrics = train_result.metrics

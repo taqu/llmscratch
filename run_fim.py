@@ -26,6 +26,7 @@ import logging
 import math
 import os
 import sys
+import gc
 from dataclasses import dataclass, field
 from itertools import chain
 from typing import Optional
@@ -525,7 +526,7 @@ def main():
         model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=None,
             config=config,
             state_dict=OrderedDict(),
-            attn_implementation="flash_attention_2",
+            attn_implementation=model_args.attn_implementation,
         )
         print("Mistral config:",config)
         print("Mistral model architecture:",model)
@@ -826,6 +827,8 @@ def main():
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
+        gc.collect()
+        torch.cuda.empty_cache()
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
         metrics = train_result.metrics

@@ -1,11 +1,11 @@
 {
   "seed": 1234,
-  "model_type": "mistral",
-  "model_name_or_path": "./mistral-338m/",
-  "tokenizer_name": "./mistral-338m/",
+  "model_type": "gemma3_text",
+  "model_name_or_path": "./gemma3-270m/",
+  "tokenizer_name": "./gemma3-270m/",
   "dataset_name": "agentlans/high-quality-english-sentences",
   "streaming": false,
-  "output_dir": "checkpoints-mistral-338m",
+  "output_dir": "checkpoints-gemma3-270m",
   "overwrite_output_dir": true,
   "do_train": true,
   "do_eval": true,
@@ -15,7 +15,7 @@
   "weight_decay": 0.1,
   "adam_beta2": 0.95,
   "num_train_epochs": 10,
-  "logging_dir": "checkpoints-mistral-338m/logs",
+  "logging_dir": "checkpoints-gemma3-270m/logs",
   "logging_strategy": "steps",
   "logging_steps": 100,
   "eval_strategy": "steps",
@@ -32,8 +32,9 @@
   "adam_epsilon": 1.0e-4,
   "fp16": true,
   "gradient_accumulation_steps": 32,
-  "gradient_checkpointing": true,
+  "gradient_checkpointing": false,
   "push_to_hub": false,
   "dataloader_num_workers": 7,
-  "torch_compile": true
+  "torch_compile": true,
+  "attn_implementation": "eager"
 }
