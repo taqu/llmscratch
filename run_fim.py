@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 # Copyright 2024 The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,6 +12,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# /// script
+# dependencies = [
+#     "transformers @ git+https://github.com/huggingface/transformers.git",
+#     "albumentations >= 1.4.16",
+#     "accelerate >= 0.12.0",
+#     "torch >= 1.3",
+#     "datasets >= 2.14.0",
+#     "sentencepiece != 0.1.92",
+#     "protobuf",
+#     "evaluate",
+#     "scikit-learn",
+# ]
+# ///
+
 """
 Fine-tuning the library models for causal language modeling using
 Fill-in-the middle (FIM) objective on a text file or a dataset.
@@ -26,7 +40,6 @@ import logging
 import math
 import os
 import sys
-import gc
 from dataclasses import dataclass, field
 from itertools import chain
 from typing import Optional
@@ -48,7 +61,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
     default_data_collator,
-    is_torch_tpu_available,
+    is_torch_xla_available,
     set_seed,
 )
 from transformers.integrations import is_deepspeed_zero3_enabled
@@ -59,7 +72,7 @@ from transformers.utils.versions import require_version
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.50.0")
+check_min_version("4.55.4")
 
 require_version("datasets>=2.14.0", "To fix: pip install -r examples/pytorch/language-modeling/requirements.txt")
 
@@ -120,7 +133,7 @@ class ModelArguments:
         metadata={
             "help": (
                 "The token to use as HTTP bearer authorization for remote files. If not specified, will use the token "
-                "generated when running `huggingface-cli login` (stored in `~/.huggingface`)."
+                "generated when running `hf auth login` (stored in `~/.huggingface`)."
             )
         },
     )
@@ -134,7 +147,7 @@ class ModelArguments:
             )
         },
     )
-    torch_dtype: Optional[str] = field(
+    dtype: Optional[str] = field(
         default=None,
         metadata={
             "help": (
@@ -142,15 +155,6 @@ class ModelArguments:
                 "dtype will be automatically derived from the model's weights."
             ),
             "choices": ["auto", "bfloat16", "float16", "float32"],
-        },
-    )
-    low_cpu_mem_usage: bool = field(
-        default=False,
-        metadata={
-            "help": (
-                "It is an option to create the model as an empty shell, then only materialize its parameters when the pretrained weights are loaded. "
-                "set True will benefit LLM loading time and RAM consumption."
-            )
         },
     )
     pad_to_multiple_of: bool = field(
@@ -184,9 +188,6 @@ class DataTrainingArguments:
     )
     dataset_config_name: Optional[str] = field(
         default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
-    )
-    dataset_dir: Optional[str] = field(
-        default=None, metadata={"help": "The directory name of the dataset to use (via the datasets library)."}
     )
     train_file: Optional[str] = field(default=None, metadata={"help": "The input training data file (a text file)."})
     validation_file: Optional[str] = field(
@@ -254,23 +255,22 @@ class DataTrainingArguments:
         },
     )
     fim_prefix_token: Optional[str] = field(
-        default="<|fim_prefix|>",
-        metadata={"help": ("Fill-in-Middle Prefix token. Defaults to '<|fim_prefix|>'.")},
+        default="<fim_prefix>",
+        metadata={"help": ("Fill-in-Middle Prefix token. Defaults to '<fim_prefix>'.")},
     )
     fim_middle_token: Optional[str] = field(
-        default="<|fim_middle|>",
-        metadata={"help": ("Fill-in-Middle Middle token. Defaults to '<|fim_middle|>'.")},
+        default="<fim_middle>",
+        metadata={"help": ("Fill-in-Middle Middle token. Defaults to '<fim_middle>'.")},
     )
     fim_suffix_token: Optional[str] = field(
-        default="<|fim_suffix|>",
-        metadata={"help": ("Fill-in-Middle Suffix token. Defaults to '<|fim_suffix|>'.")},
+        default="<fim_suffix>",
+        metadata={"help": ("Fill-in-Middle Suffix token. Defaults to '<fim_suffix>'.")},
     )
     pad_token: Optional[str] = field(
-        default="<|fim_pad|>",
+        default="<fim_pad>",
         metadata={
             "help": (
-                "Fill-in-Middle Pad token. Used only when 'truncate_or_pad' is set to True. "
-                "Defaults to '<|fim_pad|>'."
+                "Fill-in-Middle Pad token. Used only when 'truncate_or_pad' is set to True. Defaults to '<fim_pad>'."
             )
         },
     )
@@ -312,7 +312,7 @@ def main():
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
-    if len(sys.argv) >= 2 and sys.argv[1].endswith(".json"):
+    if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
         model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
@@ -383,17 +383,15 @@ def main():
         raw_datasets = load_dataset(
             data_args.dataset_name,
             data_args.dataset_config_name,
-            dataset_dir=data_args.dataset_dir,
             cache_dir=model_args.cache_dir,
             token=model_args.token,
             streaming=data_args.streaming,
             trust_remote_code=model_args.trust_remote_code,
         )
-        if "validation" not in raw_datasets.keys():
+        if "validation" not in raw_datasets:
             raw_datasets["validation"] = load_dataset(
                 data_args.dataset_name,
                 data_args.dataset_config_name,
-                dataset_dir=data_args.dataset_dir,
                 split=f"train[:{data_args.validation_split_percentage}%]",
                 cache_dir=model_args.cache_dir,
                 token=model_args.token,
@@ -403,7 +401,6 @@ def main():
             raw_datasets["train"] = load_dataset(
                 data_args.dataset_name,
                 data_args.dataset_config_name,
-                dataset_dir=data_args.dataset_dir,
                 split=f"train[{data_args.validation_split_percentage}%:]",
                 cache_dir=model_args.cache_dir,
                 token=model_args.token,
@@ -433,7 +430,7 @@ def main():
             **dataset_args,
         )
         # If no validation data is there, validation_split_percentage will be used to divide the dataset.
-        if "validation" not in raw_datasets.keys():
+        if "validation" not in raw_datasets:
             raw_datasets["validation"] = load_dataset(
                 extension,
                 data_files=data_files,
@@ -510,28 +507,17 @@ def main():
             token=model_args.token,
             trust_remote_code=model_args.trust_remote_code,
             torch_dtype=torch_dtype,
-            low_cpu_mem_usage=model_args.low_cpu_mem_usage,
             attn_implementation=model_args.attn_implementation,
         )
 
     else:
-        import json
-        def load_config_from_json(config_file):
-            with open(config_file, 'r') as f:
-                config = json.load(f)
-                config = MistralConfig.from_dict(config)
-            return config
-        config = load_config_from_json(config_file = os.path.join(os.path.dirname(__file__),"mistral-338m","config.json"))
-        from collections import OrderedDict
-        model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=None,
-            config=config,
-            state_dict=OrderedDict(),
+        model = AutoModelForCausalLM.from_config(
+            config,
+            trust_remote_code=model_args.trust_remote_code,
             attn_implementation=model_args.attn_implementation,
         )
-        print("Mistral config:",config)
-        print("Mistral model architecture:",model)
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
-        logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
+        logger.info(f"Training new model from scratch - Total size={n_params / 2**20:.2f}M params")
 
     # Add the new FIM tokens to the tokenizer and resize model's vocab embeddings
     special_tokens = [data_args.fim_prefix_token, data_args.fim_middle_token, data_args.fim_suffix_token]
@@ -540,10 +526,10 @@ def main():
 
     # Get the factor by which the embedding layer should be padded based on the device
     pad_factor = 1
-    if torch.cuda.is_availble():
+    if torch.cuda.is_available():
         pad_factor = 8
 
-    elif is_torch_tpu_available():
+    elif is_torch_xla_available(check_is_tpu=True):
         pad_factor = 128
 
     # Add the new tokens to the tokenizer
@@ -569,7 +555,7 @@ def main():
                 covariance_matrix=1e-5 * sigma,
             )
             new_token_embeddings = torch.stack(
-                tuple((dist.sample() for _ in range(len(special_tokens)))),
+                tuple(dist.sample() for _ in range(len(special_tokens))),
                 dim=0,
             )
     else:
@@ -581,15 +567,15 @@ def main():
         # Sample the embeddings for the new tokens from a multivariate normal distribution
         # We do this so that the new embeddings are close to the original embeddings and not necessarily zero
         # More on this: https://nlp.stanford.edu/~johnhew/vocab-expansion.html
-        mean = original_embeddings.mean(dim=0)
-        n = original_embeddings.size()[0]
-        sigma = ((original_embeddings - mean).T @ (original_embeddings - mean)) / n
-        dist = torch.distributions.multivariate_normal.MultivariateNormal(
-            mean,
-            covariance_matrix=1e-5 * sigma,
-        )
+        #mean = original_embeddings.mean(dim=0)
+        #n = original_embeddings.size()[0]
+        #sigma = ((original_embeddings - mean).T @ (original_embeddings - mean)) / n
+        #dist = torch.distributions.multivariate_normal.MultivariateNormal(
+        #    mean,
+        #    covariance_matrix=1e-5 * sigma,
+        #)
         new_token_embeddings = torch.stack(
-            tuple((dist.sample() for _ in range(len(special_tokens)))),
+            tuple(dist.sample() for _ in range(len(special_tokens))),
             dim=0,
         )
 
@@ -666,7 +652,7 @@ def main():
     # Data processing function that will concatenate all texts from our dataset and generate chunks of block_size.
     def group_texts(examples):
         # Concatenate all texts.
-        concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+        concatenated_examples = {k: list(chain(*examples[k])) for k in examples}
         total_length = len(concatenated_examples[list(examples.keys())[0]])
         # We drop the small remainder, and if the total_length < block_size  we exclude this batch and return an empty dict.
         # We could add padding if the model supported it instead of this drop, you can customize this part to your needs.
@@ -813,9 +799,13 @@ def main():
         processing_class=tokenizer,
         # Data collator will default to DataCollatorWithPadding, so we change it.
         data_collator=default_data_collator,
-        compute_metrics=compute_metrics if training_args.do_eval and not is_torch_tpu_available() else None,
+        compute_metrics=compute_metrics
+        if training_args.do_eval and not is_torch_xla_available(check_is_tpu=True)
+        else None,
         preprocess_logits_for_metrics=(
-            preprocess_logits_for_metrics if training_args.do_eval and not is_torch_tpu_available() else None
+            preprocess_logits_for_metrics
+            if training_args.do_eval and not is_torch_xla_available(check_is_tpu=True)
+            else None
         ),
     )
 
@@ -827,8 +817,6 @@ def main():
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        gc.collect()
-        torch.cuda.empty_cache()
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
         metrics = train_result.metrics
