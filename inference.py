@@ -2,7 +2,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 import torch
 # from transformers import PreTrainedTokenizerFast
 
-MODEL_NAME = "./checkpoints-mistral-338m/checkpoint-5000"
+MODEL_NAME = "./checkpoints-gemma3-300m"
 torch.set_float32_matmul_precision('high')
 
 DEVICE = "cuda"
@@ -38,5 +38,6 @@ with torch.no_grad():
     )
 
 outputs_txt = tokenizer.decode(outputs[0])
-print(outputs_txt)
+print("prompt: " + prompt)
+print("output: " + outputs_txt)
 

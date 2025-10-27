@@ -61,7 +61,7 @@ check_min_version("4.50.0")
 require_version("datasets>=2.14.0", "To fix: pip install -r examples/pytorch/language-modeling/requirements.txt")
 
 logger = logging.getLogger(__name__)
-
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 MODEL_CONFIG_CLASSES = list(MODEL_FOR_CAUSAL_LM_MAPPING.keys())
 MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
@@ -420,7 +420,6 @@ def main():
         "trust_remote_code": model_args.trust_remote_code,
     }
     if model_args.tokenizer_name:
-        print(model_args.tokenizer_name)
         tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
     elif model_args.model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
@@ -448,13 +447,13 @@ def main():
             low_cpu_mem_usage=model_args.low_cpu_mem_usage,
             attn_implementation=model_args.attn_implementation,
         )
+        n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
+        logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
     else:
         import json
         def load_config_from_json(config_file):
-            print(config_file)
             with open(config_file, 'r') as f:
                 config = json.load(f)
-                print(config)
                 config = AutoConfig.from_dict(config)
             return config
         #config = load_config_from_json(config_file = os.path.join(os.path.dirname(__file__),model_args.model_name_or_path,"config.json"))

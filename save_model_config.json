@@ -1,0 +1,7 @@
+{
+    "model_type": "gemma3_text",
+    "model_name_or_path": "./gemma3-246m/",
+    "tokenizer_name": "./gemma3-246m/",
+    "save_dir": "gemma3-246m-empty",
+    "trust_remote_code": true
+}
